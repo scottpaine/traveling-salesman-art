@@ -140,7 +140,7 @@ def sum_regions(centroids, new_centroid_sums, rho, res_step, size):
     """create weighted voronoi diagram and add up for new centroids"""
 
     # construct 2-dimensional tree from generating points
-    tree = spatial.KDTree(zip(centroids[0], centroids[1]))
+    tree = spatial.KDTree(list(zip(centroids[0], centroids[1])))
 
     imgx, imgy = size
     x_range = np.arange(res_step/2.0, imgx, res_step)
@@ -165,7 +165,7 @@ def sum_regions(centroids, new_centroid_sums, rho, res_step, size):
 
 def zip_points(p):
     """zip 2d array into tuples"""
-    return zip(p[0], p[1])
+    return list(zip(p[0], p[1]))
 
 
 def printr(s):

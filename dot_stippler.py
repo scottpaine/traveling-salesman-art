@@ -21,7 +21,7 @@ CIRCLE_RADIUS = 6
 def draw_dots_on(image, stretched=True):
     """connect_the_dots (this file's main method)"""
     nodes = read_in_nodes(image)
-    print("Read in" + str(len(nodes)) + "nodes.")
+    print("Read in " + str(len(nodes)) + " nodes.")
 
     if not stretched:
         image = magnify_image(image.size, nodes, CIRCLE_RADIUS)

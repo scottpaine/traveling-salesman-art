@@ -28,7 +28,7 @@ LINE_WIDTH = 2
 def connect_the_dots(image):
     """connect_the_dots (this file's main method)"""
     nodes = read_in_nodes(image)
-    print("Read in" + str(len(nodes)) + "nodes.")
+    print("Read in " + str(len(nodes)) + " nodes.")
 
     lines = connect_dots_with_lines(read_in_nodes(image))
     print("Calculated nearest neighbors.")

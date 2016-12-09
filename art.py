@@ -13,7 +13,7 @@ import vstipple as stippler
 def __main__():
 
     folder_base = "input/"
-    image_filename = "isaac-edited.jpg"
+    image_filename = "homer-1.jpg"
     image = Image.open(folder_base + image_filename).convert('L')
 
     showtime = strftime("%Y%m%d%H%M%S", gmtime())
