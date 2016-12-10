@@ -24,9 +24,8 @@ MAGNIFICATION = 8
 
 def voronoi_stipple(image):
     """compute the weighted voronoi stippling for an image"""
-    pixels = image.load()
-    putpixel = image.putpixel
-    imgx, imgy = image.size
+    pixels = np.array(image)
+    imgx, imgy = pixels.shape
 
     num_cells = int(math.hypot(imgx, imgy) * MAGNIFICATION)
 
@@ -37,52 +36,44 @@ def voronoi_stipple(image):
           " stipples with convergence point " +
           str(CONVERGENCE_LIMIT) + ".")
 
-    centroids = [
-        [random.randrange(imgx) for _ in range(num_cells)],
-        [random.randrange(imgy) for _ in range(num_cells)]
-    ]
+    centroids = np.array(
+        [np.random.randint(imgx, size=(num_cells,)),
+         np.random.randint(imgy, size=(num_cells,))]
+    )
 
     # precompute pixel densities
-    rho = [[0] * imgx for _ in range(imgy)]
-    for y in range(imgy):
-        for x in range(imgx):
-            rho[y][x] = 1 - pixels[x, y]/255.0  # rho
+    rho = np.array(1 - pixels / 255.0)
 
     # make folder to save each snapshot
     folder_base = "output/_step/" + showtime + "/"
     os.makedirs(folder_base)
 
     # save initial image
-    clear_image(image.size, putpixel)
-    draw_points(zip_points(centroids), putpixel)
+    clear_image(pixels)
+    draw_points(centroids, pixels)
     image.save(folder_base + "0.png", "PNG")
 
     # empty arrays for storing new centroid sums
-    new_centroid_sums = [
-        [0] * num_cells,  # x component
-        [0] * num_cells,  # y component
-        [0] * num_cells   # density
-    ]
+    new_centroid_sums = np.zeros((3, num_cells))
 
     # Iterate to convergence
     iteration = 1
     resolution = DEFAULT_RESOLUTION
     while True:
         # Zero all sums.
-        zero_lists(new_centroid_sums)
+        new_centroid_sums[:] = 0
 
         # Shade regions and add up centroid totals.
         sum_regions(centroids,
                     new_centroid_sums,
                     rho,
                     1.0 / resolution,
-                    image.size)
+                    pixels.shape)
 
         # Compute new centroids.
         centroidal_delta = compute_centroids(centroids,
                                              new_centroid_sums,
-                                             image.size)
-
+                                             pixels.shape)
         # Print step difference.
         printr(str(iteration) +
                "     \tDifference: " +
@@ -90,8 +81,8 @@ def voronoi_stipple(image):
                ".\n")
 
         # Save a snapshot of the current image.
-        clear_image(image.size, putpixel)
-        draw_points(zip_points(centroids), putpixel)
+        clear_image(pixels)
+        draw_points(centroids, pixels)
         image.save(folder_base + str(iteration) + ".png", "PNG")
 
         # If no pixels shifted, we have to increase resolution.
@@ -108,30 +99,43 @@ def voronoi_stipple(image):
 
     # Final print statement.
     print("(+) Magnifying image and drawing final centroids.")
-    return magnify_and_draw_points(zip_points(centroids), image.size)
+    return magnify_and_draw_points(centroids, pixels.shape)
 
 
 def compute_centroids(centroids, new_centroid_sums, image_size):
     """calculate centroids for a weighted voronoi diagram"""
-    centroidal_delta = 0
+    # centroidal_delta = 0
 
-    for i in range(len(centroids[0])):
+    zero_rho = np.where(new_centroid_sums[2] == 0)[0]
+    nonzero_rho = np.where(np.abs(new_centroid_sums[2]) > 0)
 
-        if not new_centroid_sums[2][i]:
-            # all pixels in region have rho = 0
-            # send centroid somewhere else
-            centroids[0][i] = random.randrange(image_size[0])
-            centroids[1][i] = random.randrange(image_size[1])
-        else:
-            new_centroid_sums[0][i] /= new_centroid_sums[2][i]
-            new_centroid_sums[1][i] /= new_centroid_sums[2][i]
-            # print("centroidal_delta" + str(centroidal_delta))
-            centroidal_delta += hypot_square(
-                (new_centroid_sums[0][i] - centroids[0][i]),
-                (new_centroid_sums[1][i] - centroids[1][i])
-            )
-            centroids[0][i] = new_centroid_sums[0][i]
-            centroids[1][i] = new_centroid_sums[1][i]
+    centroids[0, zero_rho] = np.random.randint(image_size[0],
+                                               size=(zero_rho.shape[0],))
+    centroids[1, zero_rho] = np.random.randint(image_size[1],
+                                               size=(zero_rho.shape[0],))
+    normalizer = new_centroid_sums[2, nonzero_rho][None, :]
+    new_centroid_sums[:2, nonzero_rho] /= normalizer
+
+    diffs = new_centroid_sums[:2, nonzero_rho] - centroids[:, nonzero_rho]
+    centroidal_delta = (diffs ** 2).sum()
+    centroids[:, nonzero_rho] = new_centroid_sums[:2, nonzero_rho]
+    # for i in range(len(centroids[0])):
+    #
+    #     if not new_centroid_sums[2][i]:
+    #         # all pixels in region have rho = 0
+    #         # send centroid somewhere else
+    #         centroids[0][i] = random.randrange(image_size[0])
+    #         centroids[1][i] = random.randrange(image_size[1])
+    #     else:
+    #         new_centroid_sums[0][i] /= new_centroid_sums[2][i]
+    #         new_centroid_sums[1][i] /= new_centroid_sums[2][i]
+    #         # print("centroidal_delta" + str(centroidal_delta))
+    #         centroidal_delta += hypot_square(
+    #             (new_centroid_sums[0][i] - centroids[0][i]),
+    #             (new_centroid_sums[1][i] - centroids[1][i])
+    #         )
+    #         centroids[0][i] = new_centroid_sums[0][i]
+    #         centroids[1][i] = new_centroid_sums[1][i]
 
     return centroidal_delta
 
@@ -140,27 +144,23 @@ def sum_regions(centroids, new_centroid_sums, rho, res_step, size):
     """create weighted voronoi diagram and add up for new centroids"""
 
     # construct 2-dimensional tree from generating points
-    tree = spatial.KDTree(list(zip(centroids[0], centroids[1])))
+    tree = spatial.KDTree(centroids.T)
 
     imgx, imgy = size
     x_range = np.arange(res_step/2.0, imgx, res_step)
     y_range = np.arange(res_step/2.0, imgy, res_step)
     point_matrix = list(itertools.product(x_range, y_range))
     nearest_nbr_indices = tree.query(point_matrix)[1]
-    for i in range(len(point_matrix)):
-        point = point_matrix[i]
+    x = np.array(point_matrix[0], dtype=np.int)
+    y = np.array(point_matrix[1], dtype=np.int)
+    r = rho[x, y]
+    for point, nearest_nbr in zip(point_matrix, nearest_nbr_indices):
         x = point[0]
         y = point[1]
-        r = rho[int(y)][int(x)]
-        nearest_nbr_index = nearest_nbr_indices[i]
-        new_centroid_sums[0][nearest_nbr_index] += r * x
-        new_centroid_sums[1][nearest_nbr_index] += r * y
-        new_centroid_sums[2][nearest_nbr_index] += r
-        #
-        if i % 10 == 0:
-            #
-            perc = float(i) / len(point_matrix)
-            printr("{:.2%}".format(perc))
+        r = rho[int(x), int(y)]
+        new_centroid_sums[0][nearest_nbr] += r * x
+        new_centroid_sums[1][nearest_nbr] += r * y
+        new_centroid_sums[2][nearest_nbr] += r
 
 
 def zip_points(p):
@@ -186,36 +186,30 @@ def zero_list(the_list):
         the_list[x] = 0
 
 
-def clear_image(size, putpixel):
+def clear_image(arr):
     """set all pixels in an image to its negative color"""
-    imgx, imgy = size
-    for y in range(imgy):
-        for x in range(imgx):
-            putpixel((x, y), NEG_COLOR)
+    arr[:] = NEG_COLOR
 
 
 def magnify_and_draw_points(points, size):
     """increase whitespace between images and draw final nodes"""
     magnified_size = (size[0] * MAGNIFICATION, size[1] * MAGNIFICATION)
-    blank_magnified_image = Image.new("L", magnified_size)
-    putpixel = blank_magnified_image.putpixel
-    clear_image(magnified_size, putpixel)
+    blank_magnified_image = np.zeros(magnified_size, dtype=np.int)
+    clear_image(blank_magnified_image)
 
-    magnified_points = [tuple(MAGNIFICATION*x for x in point) for point in points]
+    magnified_points = MAGNIFICATION * points
 
-    draw_points(magnified_points, putpixel)
+    draw_points(magnified_points, blank_magnified_image)
 
     return blank_magnified_image
 
 
-def draw_points(points, putpixel):
+def draw_points(points, arr):
     """draw a set of points on an image"""
-    for i in range(len(points)):
-        pt = round_point(points[i])
-        if pt == (0, 0):
-            # Skip pixels at origin - they'll break the TSP art
-            continue
-        putpixel(pt, POS_COLOR)
+    previous_origin = arr[0, 0]
+
+    arr[points[0], points[1]] = POS_COLOR
+    arr[0, 0] = previous_origin
 
 
 def round_point(pt):
